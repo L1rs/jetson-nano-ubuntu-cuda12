@@ -1,0 +1,7 @@
+[Unit]
+Description=Check GitHub for a newer release of jetson-nano-ubuntu-cuda12
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/nano-update check

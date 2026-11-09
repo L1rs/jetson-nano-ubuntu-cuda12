@@ -1,0 +1,9 @@
+[Unit]
+Description=Ready-made image: grow the partition, new SSH keys, RAM timing table for Ubuntu 26.04 (runs once)
+After=local-fs.target
+Before=ssh.service
+[Service]
+Type=oneshot
+ExecStart=/opt/jn-firstboot/firstboot.sh
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,9 @@
+# Python packages in ~/torch-venv besides torch/torchvision (install.sh, update.sh adds missing ones)
+jupyterlab
+ipywidgets
+anywidget
+smbus2
+traitlets
+onnx
+numpy==2.5.*
+opencv-python-headless==5.0.*

@@ -1,0 +1,38 @@
+--- a/drivers/memory/tegra/tegra210-emc-core.c
++++ b/drivers/memory/tegra/tegra210-emc-core.c
+@@ -1814,8 +1814,9 @@
+ 	unsigned long current_rate;
+ 	struct tegra210_emc *emc;
+ 	struct device_node *np;
++	const void *blob;
+ 	unsigned int i;
+-	int err;
++	int err, len;
+ 
+ 	emc = devm_kzalloc(&pdev->dev, sizeof(*emc), GFP_KERNEL);
+ 	if (!emc)
+@@ -1847,6 +1848,24 @@
+ 	tegra210_emc_detect(emc);
+ 	np = pdev->dev.of_node;
+ 
++	/*
++	 * T210_MAINLINE: L4T-Bootloader (cboot) liefert die trainierte Tabelle nur im
++	 * L4T-DT-Format; tools/emc-table.py wandelt sie in struct tegra210_emc_timing[]
++	 * (Null-Eintrag am Ende) und deploy-mainline.sh legt sie als Property ab.
++	 * ponytail: Trainingswerte stammen aus einem L4T-Boot, nicht aus diesem.
++	 */
++	blob = of_get_property(np, "nvidia,emc-table", &len);
++	if (blob) {
++		emc->nominal = devm_kmemdup(emc->dev, blob, len, GFP_KERNEL);
++		if (!emc->nominal)
++			return -ENOMEM;
++		for (i = 0; i < len / sizeof(*emc->nominal) &&
++			    emc->nominal[i].revision; i++)
++			;
++		emc->num_timings = i;
++		dev_info(emc->dev, "%u EMC timings from DT property\n", i);
++		err = 0;
++	} else
+ 	/* attach to the nominal and (optional) derated tables */
+ 	err = of_reserved_mem_device_init_by_name(emc->dev, np, "nominal");
+ 	if (err < 0) {

@@ -1,0 +1,10 @@
+# CUDA 12.6 runtime from the Jetson repo (r36.4) for PyTorch (build-rootfs.sh, update.sh)
+cuda-cudart-12-6
+libcublas-12-6
+libcufft-12-6
+libcurand-12-6
+libcusolver-12-6
+libcusparse-12-6
+cuda-nvrtc-12-6
+libcufile-12-6
+libnvjitlink-12-6

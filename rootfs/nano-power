@@ -1,0 +1,53 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# nano-power: CPU clock cap of the Jetson Nano.
+#   safe    918 MHz (default; stable even on weak 5 V micro-USB supplies)
+#   max     highest clock the kernel offers (1555 MHz on the tested board; needs a strong supply,
+#           e.g. barrel jack 5 V/4 A or the JetBot battery board)
+#   test    run 5 min full CPU+GPU load at max; if the Nano survives, switch to max permanently.
+#           If it hangs: power-cycle, it comes back in safe mode (the setting is written only after the test).
+#   status  show the current mode and clocks
+# The setting lives in /etc/default/nano-power and is applied at boot by tegra-clocks.service.
+# GPU and memory clocks follow the load (tegra-dvfs.service) in both modes.
+set -e
+CONF=/etc/default/nano-power; SAFE=918000; MAX=${MAX:-$(cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq)}; DUR=${DUR:-300}
+PY=${PY:-$(ls /home/*/torch-venv/bin/python 2>/dev/null | head -1)}
+cpu() { for f in /sys/devices/system/cpu/cpu[0-9]*/cpufreq/scaling_max_freq; do echo $1 > $f; done; }
+save() { echo "CPU_KHZ=$1" > $CONF; cpu $1; echo "mode: $2 (CPU cap $(($1 / 1000)) MHz, saved)"; }
+need_root() { [ "$(id -u)" = 0 ] || { echo "run with sudo" >&2; exit 1; }; }
+case "$1" in
+  safe) need_root; save $SAFE safe ;;
+  max)  need_root; save $MAX max ;;
+  status|"")
+    k=$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq)
+    [ "$k" -ge $MAX ] && m=max || m=safe
+    echo "mode: $m (CPU cap $((k / 1000)) MHz, now $(($(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq) / 1000)) MHz)"
+    echo "GPU load $(($(cat /sys/devices/platform/57000000.gpu/load 2>/dev/null || echo 0) / 10)) %, temps $(cat /sys/class/thermal/thermal_zone*/temp | awk '{printf "%d ", $1/1000}')C"
+    echo "change: sudo nano-power safe | max | test" ;;
+  test)
+    need_root; [ -x "$PY" ] || { echo "no torch venv found (set PY=...)" >&2; exit 1; }
+    L=/var/log/nano-power-test.log; old=$(. $CONF 2>/dev/null; echo ${CPU_KHZ:-$SAFE})
+    fail() {
+      cpu $old; echo; echo "FAILED: $1"; echo "fail $(date): $1" >> $L
+      echo "Max clocks are not stable with this power supply. Kept the previous mode ($((old / 1000)) MHz)."
+      echo "Reboot before using the GPU again (a voltage dip can leave the GPU in a bad state)."; exit 1
+    }
+    echo "Testing max clocks for $DUR s under full CPU+GPU load. If the Nano hangs, power-cycle it: it restarts in the previous mode."
+    echo "== test start $(date)" >> $L; sync
+    cpu $MAX; trap 'cpu $old; kill 0' INT TERM
+    for i in 1 2 3; do timeout $DUR sh -c 'while :; do :; done' & done
+    timeout $DUR "$PY" -c "import torch
+a = torch.randn(2048, 2048, device='cuda', dtype=torch.half)
+while True: a @ a; torch.cuda.synchronize()" > /tmp/nano-power-gpu.log 2>&1 &
+    G=$!; end=$(($(date +%s) + DUR))
+    while [ $(date +%s) -lt $end ]; do
+      kill -0 $G 2>/dev/null || break            # GPU load ended early: CUDA error
+      echo "$(date +%T) cpu=$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq) gpu=$(cat /sys/devices/platform/57000000.gpu/load)" >> $L; sync
+      printf '\r%3d s left ' $((end - $(date +%s))); sleep 5
+    done
+    sleep 5; kill -0 $G 2>/dev/null && fail "GPU load did not stop (GPU hung)"
+    rc=0; wait $G || rc=$?                       # 124 = stopped by timeout = ran the full time
+    [ $rc = 124 ] || fail "GPU load stopped with an error ($(tail -1 /tmp/nano-power-gpu.log))"
+    echo; echo "ok $(date)" >> $L; save $MAX max ;;
+  *) sed -n '3,10p' "$0"; exit 1 ;;
+esac

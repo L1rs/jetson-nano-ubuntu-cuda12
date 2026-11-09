@@ -1,0 +1,21 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# nano-trt: TensorRT 8.0 tools on Ubuntu 26.04 (see docs/tensorrt.md)
+#   sudo nano-trt build model.onnx model.engine [trtexec options, default --fp16]
+#        builds an engine. Needs root: the GPU watchdog is switched off while TensorRT times its
+#        kernel candidates (some run longer than the watchdog allows, and the watchdog recovery hangs the Nano).
+#   nano-trt bench model.engine        measures an engine (trtexec)
+#   nano-trt trtexec ...               runs trtexec with any options
+T=/opt/nanotrt; WDT=/sys/kernel/debug/gpu.0/timeouts_enabled
+export LD_LIBRARY_PATH=$T/lib
+case "$1" in
+  build)
+    [ "$(id -u)" = 0 ] || { echo "run with sudo (GPU watchdog)" >&2; exit 1; }
+    [ $# -ge 3 ] || { sed -n '3,9p' "$0"; exit 1; }
+    in=$2; out=$3; shift 3; [ $# -gt 0 ] || set -- --fp16
+    echo 0 > $WDT; trap 'echo 1 > $WDT' EXIT
+    $T/bin/trtexec.bin --onnx="$in" --saveEngine="$out" --workspace=512 "$@" ;;
+  bench) exec $T/bin/trtexec.bin --loadEngine="$2" --duration=${DUR:-10} ;;
+  trtexec) shift; exec $T/bin/trtexec.bin "$@" ;;
+  *) sed -n '3,9p' "$0"; exit 1 ;;
+esac

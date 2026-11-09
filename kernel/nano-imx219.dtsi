@@ -1,0 +1,87 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * IMX219 (RPi Cam v2 kompatibel) an CAM0 des Jetson Nano B01: CSI A, 2 Lanes.
+ * Werte aus dem L4T-DTB (cam_i2cmux, rbpcv2_imx219_a@10): Sensor auf i2c@546c0000
+ * (vi-i2c) hinter einem i2c-mux-gpio (PI0, 0 = CAM0), XCLR/Reset an PS7, 24 MHz Takt.
+ * Wird von tools/build-kernel.sh an tegra210-p3450-0000.dts angehaengt.
+ */
+/ {
+	/* ponytail: Modul hat eigenen 24-MHz-Quarz, daher fixed-clock statt extperiph3/mclk */
+	cam_xclk: cam-xclk {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+	};
+
+	host1x@50000000 {
+		vi@54080000 {
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+					vi_in0: endpoint {
+						remote-endpoint = <&csi_out0>;
+					};
+				};
+			};
+
+			csi@838 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				channel@0 {
+					reg = <0>;
+					#address-cells = <1>;
+					#size-cells = <0>;
+					nvidia,mipi-calibrate = <&mipi 0x001>; /* CSIA */
+
+					port@0 {
+						reg = <0>;
+						csi_in0: endpoint {
+							data-lanes = <1 2>;
+							remote-endpoint = <&imx219_out0>;
+						};
+					};
+
+					port@1 {
+						reg = <1>;
+						csi_out0: endpoint {
+							remote-endpoint = <&vi_in0>;
+						};
+					};
+				};
+			};
+		};
+
+		i2c@546c0000 {
+			clock-frequency = <400000>;
+
+			imx219@10 {
+				compatible = "sony,imx219";
+				reg = <0x10>;
+				clocks = <&cam_xclk>;
+				reset-gpios = <&gpio TEGRA_GPIO(S, 7) GPIO_ACTIVE_HIGH>;
+
+				port {
+					imx219_out0: endpoint {
+						data-lanes = <1 2>;
+						link-frequencies = /bits/ 64 <456000000>;
+						remote-endpoint = <&csi_in0>;
+					};
+				};
+			};
+		};
+	};
+};
+
+&gpio {
+	/* ponytail: i2c-mux-gpio fest auf CAM0 statt I2C_MUX_GPIO; CAM1 braucht echten Mux */
+	cam-i2c-mux-hog {
+		gpio-hog;
+		gpios = <TEGRA_GPIO(I, 0) GPIO_ACTIVE_HIGH>;
+		output-low;
+		line-name = "cam-i2c-mux";
+	};
+};

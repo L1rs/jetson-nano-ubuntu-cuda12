@@ -1,0 +1,672 @@
+diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x out -x nvethernetrm -x '*.a' orig/nvidia-oot/drivers/gpu/host1x/context.c kernel-oot/nvidia-oot/drivers/gpu/host1x/context.c
+--- orig/nvidia-oot/drivers/gpu/host1x/context.c	2026-11-07 21:01:42.026282896 +0000
++++ kernel-oot/nvidia-oot/drivers/gpu/host1x/context.c	2026-11-07 21:32:08.617635594 +0000
+@@ -15,6 +15,12 @@
+ #include "context.h"
+ #include "dev.h"
+ 
++/* 6.18 only builds the context bus in-tree together with in-tree host1x */
++const struct bus_type host1x_context_device_bus_type = {
++	.name = "host1x-context",
++};
++EXPORT_SYMBOL_GPL(host1x_context_device_bus_type);
++
+ int host1x_memory_context_list_init(struct host1x *host1x)
+ {
+ 	struct host1x_memory_context_list *cdl = &host1x->context_list;
+diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x out -x nvethernetrm -x '*.a' orig/nvidia-oot/drivers/gpu/host1x/context.h kernel-oot/nvidia-oot/drivers/gpu/host1x/context.h
+--- orig/nvidia-oot/drivers/gpu/host1x/context.h	2026-11-07 21:01:42.026348146 +0000
++++ kernel-oot/nvidia-oot/drivers/gpu/host1x/context.h	2026-11-07 21:32:08.617698885 +0000
+@@ -13,7 +13,7 @@
+ 
+ struct host1x;
+ 
+-extern struct bus_type host1x_context_device_bus_type;
++extern const struct bus_type host1x_context_device_bus_type;
+ 
+ struct host1x_memory_context_list {
+ 	struct mutex lock;
+diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x out -x nvethernetrm -x '*.a' orig/nvidia-oot/drivers/gpu/host1x/dev.c kernel-oot/nvidia-oot/drivers/gpu/host1x/dev.c
+--- orig/nvidia-oot/drivers/gpu/host1x/dev.c	2026-11-07 21:01:42.026550770 +0000
++++ kernel-oot/nvidia-oot/drivers/gpu/host1x/dev.c	2026-11-07 21:32:08.617767094 +0000
+@@ -1144,13 +1144,20 @@
+ {
+ 	int err;
+ 
+-	err = bus_register(&host1x_bus_type);
++	err = bus_register(&host1x_context_device_bus_type);
+ 	if (err < 0)
+ 		return err;
+ 
+-	err = platform_register_drivers(drivers, ARRAY_SIZE(drivers));
++	err = bus_register(&host1x_bus_type);
+ 	if (err < 0)
++		goto unreg_ctx;
++
++	err = platform_register_drivers(drivers, ARRAY_SIZE(drivers));
++	if (err < 0) {
+ 		bus_unregister(&host1x_bus_type);
++unreg_ctx:
++		bus_unregister(&host1x_context_device_bus_type);
++	}
+ 
+ 	return err;
+ }
+@@ -1160,6 +1167,7 @@
+ {
+ 	platform_unregister_drivers(drivers, ARRAY_SIZE(drivers));
+ 	bus_unregister(&host1x_bus_type);
++	bus_unregister(&host1x_context_device_bus_type);
+ }
+ module_exit(tegra_host1x_exit);
+ 
+diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x out -x nvethernetrm -x '*.a' orig/nvidia-oot/drivers/gpu/host1x-fence/dev.c kernel-oot/nvidia-oot/drivers/gpu/host1x-fence/dev.c
+--- orig/nvidia-oot/drivers/gpu/host1x-fence/dev.c	2026-11-07 21:01:42.024107154 +0000
++++ kernel-oot/nvidia-oot/drivers/gpu/host1x-fence/dev.c	2026-11-08 04:46:19.616569673 +0000
+@@ -7,7 +7,8 @@
+ #include <linux/cdev.h>
+ #include <linux/file.h>
+ #include <linux/fs.h>
+-#include <linux/host1x-next.h>
++#include <linux/host1x.h>
++#include <linux/workqueue.h>
+ #include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/of_platform.h>
+@@ -32,6 +33,7 @@
+ 	struct device_node *np;
+ 
+ 	static const struct of_device_id host1x_match[] = {
++		{ .compatible = "nvidia,tegra210-host1x", }, /* T210_MAINLINE */
+ 		{ .compatible = "nvidia,tegra186-host1x", },
+ 		{ .compatible = "nvidia,tegra194-host1x", },
+ 		{ .compatible = "nvidia,tegra234-host1x", },
+@@ -53,6 +55,39 @@
+ 	return 0;
+ }
+ 
++#ifndef HOST1X_SYNCPT_GPU
++/*
++ * T210_MAINLINE: the in-tree host1x has no host1x_fence_extract().
++ * ponytail: copy of struct host1x_syncpt_fence from drivers/gpu/host1x/fence.h (6.18);
++ * must match the kernel, drop once upstream exports an extract helper.
++ */
++struct host1x_syncpt_fence {
++	struct dma_fence base;
++	atomic_t signaling;
++	struct host1x_syncpt *sp;
++	u32 threshold;
++	bool timeout;
++	struct delayed_work timeout_work;
++	struct list_head list;
++};
++
++int host1x_fence_extract(struct dma_fence *fence, u32 *id, u32 *threshold);
++int host1x_fence_extract(struct dma_fence *fence, u32 *id, u32 *threshold)
++{
++	struct host1x_syncpt_fence *f;
++
++	if (!fence->ops->get_driver_name ||
++	    strcmp(fence->ops->get_driver_name(fence), "host1x"))
++		return -EINVAL;
++
++	f = container_of(fence, struct host1x_syncpt_fence, base);
++	*id = host1x_syncpt_id(f->sp);
++	*threshold = f->threshold;
++	return 0;
++}
++EXPORT_SYMBOL_GPL(host1x_fence_extract);
++#endif
++
+ static int host1x_fence_create_fd(struct host1x_syncpt *sp, u32 threshold)
+ {
+ 	struct sync_file *file;
+@@ -502,6 +537,7 @@
+ }
+ 
+ static const struct of_device_id host1x_fence_of_match[] = {
++	{ .compatible = "nvidia,tegra210-host1x" }, /* T210_MAINLINE */
+ 	{ .compatible = "nvidia,tegra234-host1x" },
+ 	{ },
+ };
+diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x out -x nvethernetrm -x '*.a' orig/nvidia-oot/drivers/platform/tegra/mc-utils/mc-utils.c kernel-oot/nvidia-oot/drivers/platform/tegra/mc-utils/mc-utils.c
+--- orig/nvidia-oot/drivers/platform/tegra/mc-utils/mc-utils.c	2026-11-07 21:01:42.262729264 +0000
++++ kernel-oot/nvidia-oot/drivers/platform/tegra/mc-utils/mc-utils.c	2026-11-07 21:39:18.986914089 +0000
+@@ -397,8 +397,8 @@
+ 		ops = &mc_utils_t23x_ops;
+ 		return tegra_mc_utils_init_t23x();
+ 	}
+-	pr_err("mc-utils: Not able to find SOC DT node\n");
+-	return -ENODEV;
++	pr_info("mc-utils: no T23x MC, helpers only (T210 mainline)\n");
++	return 0;
+ }
+ module_init(tegra_mc_utils_init);
+ 
+diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x out -x nvethernetrm -x '*.a' orig/nvidia-oot/drivers/video/tegra/nvmap/Makefile.memory.configs kernel-oot/nvidia-oot/drivers/video/tegra/nvmap/Makefile.memory.configs
+--- orig/nvidia-oot/drivers/video/tegra/nvmap/Makefile.memory.configs	2026-11-07 21:01:42.281685113 +0000
++++ kernel-oot/nvidia-oot/drivers/video/tegra/nvmap/Makefile.memory.configs	2026-11-07 21:32:08.617850635 +0000
+@@ -137,7 +137,7 @@
+ NVMAP_CONFIG_HANDLE_AS_ID := y
+ NVMAP_CONFIG_FD_START := 0x0
+ endif
+-NVMAP_CONFIG_SCIIPC := y
++NVMAP_CONFIG_SCIIPC := n
+ # For OOT build
+ NVMAP_CONFIG_UPSTREAM_KERNEL := y
+ NVMAP_CONFIG_COLOR_PAGES := n
+diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x out -x nvethernetrm -x '*.a' orig/nvidia-oot/drivers/video/tegra/nvmap/nvmap_alloc.c kernel-oot/nvidia-oot/drivers/video/tegra/nvmap/nvmap_alloc.c
+--- orig/nvidia-oot/drivers/video/tegra/nvmap/nvmap_alloc.c	2026-11-07 21:01:42.281902029 +0000
++++ kernel-oot/nvidia-oot/drivers/video/tegra/nvmap/nvmap_alloc.c	2026-11-08 11:46:54.579372008 +0000
+@@ -792,7 +792,7 @@
+ 							if (cpu_addr != NULL) {
+ 								memset(cpu_addr, 0, granule_size);
+ #ifdef NVMAP_UPSTREAM_KERNEL
+-								arch_invalidate_pmem(cpu_addr,
++								__dma_flush_area(/* T210_MAINLINE: clean+inv, arch_invalidate_pmem verwirft dirty lines */ cpu_addr,
+ 										     granule_size);
+ #else
+ 								__dma_flush_area(cpu_addr,
+@@ -808,7 +808,7 @@
+ 						if (cpu_addr != NULL) {
+ 							memset(cpu_addr, 0, h->size);
+ #ifdef NVMAP_UPSTREAM_KERNEL
+-							arch_invalidate_pmem(cpu_addr, h->size);
++							__dma_flush_area(/* T210_MAINLINE: clean+inv, arch_invalidate_pmem verwirft dirty lines */ cpu_addr, h->size);
+ #else
+ 							__dma_flush_area(cpu_addr, h->size);
+ #endif
+diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x out -x nvethernetrm -x '*.a' orig/nvidia-oot/drivers/video/tegra/nvmap/nvmap_cache.c kernel-oot/nvidia-oot/drivers/video/tegra/nvmap/nvmap_cache.c
+--- orig/nvidia-oot/drivers/video/tegra/nvmap/nvmap_cache.c	2026-11-07 21:01:42.281976570 +0000
++++ kernel-oot/nvidia-oot/drivers/video/tegra/nvmap/nvmap_cache.c	2026-11-08 11:46:54.578976924 +0000
+@@ -58,7 +58,7 @@
+ {
+ 	if (op == NVMAP_CACHE_OP_WB_INV)
+ #ifdef NVMAP_UPSTREAM_KERNEL
+-		arch_invalidate_pmem(vaddr, size);
++		__dma_flush_area(/* T210_MAINLINE: clean+inv, arch_invalidate_pmem verwirft dirty lines */ vaddr, size);
+ #else
+ 		__dma_flush_area(vaddr, size);
+ #endif
+diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x out -x nvethernetrm -x '*.a' orig/nvidia-oot/drivers/video/tegra/nvmap/nvmap_core.c kernel-oot/nvidia-oot/drivers/video/tegra/nvmap/nvmap_core.c
+--- orig/nvidia-oot/drivers/video/tegra/nvmap/nvmap_core.c	2026-11-07 21:01:42.282155444 +0000
++++ kernel-oot/nvidia-oot/drivers/video/tegra/nvmap/nvmap_core.c	2026-11-08 11:46:54.579595383 +0000
+@@ -113,7 +113,7 @@
+ 	if (h->flags != NVMAP_HANDLE_UNCACHEABLE &&
+ 	    h->flags != NVMAP_HANDLE_WRITE_COMBINE) {
+ #ifdef NVMAP_UPSTREAM_KERNEL
+-		arch_invalidate_pmem(addr, PAGE_SIZE);
++		__dma_flush_area(/* T210_MAINLINE: clean+inv, arch_invalidate_pmem verwirft dirty lines */ addr, PAGE_SIZE);
+ #else
+ 		__dma_flush_area(addr, PAGE_SIZE);
+ #endif
+diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x out -x nvethernetrm -x '*.a' orig/nvidia-oot/drivers/video/tegra/nvmap/nvmap_init.c kernel-oot/nvidia-oot/drivers/video/tegra/nvmap/nvmap_init.c
+--- orig/nvidia-oot/drivers/video/tegra/nvmap/nvmap_init.c	2026-11-07 21:01:42.283134233 +0000
++++ kernel-oot/nvidia-oot/drivers/video/tegra/nvmap/nvmap_init.c	2026-11-07 23:23:20.913492301 +0000
+@@ -1046,6 +1046,16 @@
+ 		nvmap_heap_deinit();
+ 		goto fail;
+ 	}
++#ifdef NVMAP_LOADABLE_MODULE
++	/* T210_MAINLINE: Mainline-DT hat keinen tegra-carveouts-Knoten, Geraet selbst anlegen */
++	if (!nvmap_is_carveout_node_present()) {
++		struct platform_device_info pi = { .name = "tegra-carveouts", .id = PLATFORM_DEVID_NONE,
++						   .dma_mask = DMA_BIT_MASK(64) };
++		pdev = platform_device_register_full(&pi);
++		if (IS_ERR(pdev))
++			pdev = NULL;
++	}
++#endif
+ 
+ fail:
+ 	return e;
+diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x out -x nvethernetrm -x '*.a' orig/nvidia-oot/drivers/video/tegra/nvmap/nvmap_priv.h kernel-oot/nvidia-oot/drivers/video/tegra/nvmap/nvmap_priv.h
+--- orig/nvidia-oot/drivers/video/tegra/nvmap/nvmap_priv.h	2026-11-07 21:01:42.283641356 +0000
++++ kernel-oot/nvidia-oot/drivers/video/tegra/nvmap/nvmap_priv.h	2026-11-07 21:32:08.617912719 +0000
+@@ -878,11 +878,11 @@
+ int nvmap_sci_ipc_init(void);
+ void nvmap_sci_ipc_exit(void);
+ #else
+-__weak int nvmap_sci_ipc_init(void)
++static inline int nvmap_sci_ipc_init(void)
+ {
+ 	return 0;
+ }
+-__weak void nvmap_sci_ipc_exit(void)
++static inline void nvmap_sci_ipc_exit(void)
+ {
+ }
+ #endif
+diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x '*.a' orig/nvgpu/drivers/gpu/nvgpu/common/clk_arb/clk_arb.c kernel-oot/nvgpu/drivers/gpu/nvgpu/common/clk_arb/clk_arb.c
+--- orig/nvgpu/drivers/gpu/nvgpu/common/clk_arb/clk_arb.c	2026-11-07 21:01:39.449255114 +0000
++++ kernel-oot/nvgpu/drivers/gpu/nvgpu/common/clk_arb/clk_arb.c	2026-11-07 23:00:40.500040841 +0000
+@@ -667,6 +667,11 @@
+ {
+ 	int ret = -EINVAL;
+ 
++	/* T210_MAINLINE: gm20b has no clk_arb range op */
++	if (g->ops.clk_arb.get_arbiter_clk_range == NULL) {
++		return -EINVAL;
++	}
++
+ 	switch (api_domain) {
+ 	case NVGPU_CLK_DOMAIN_MCLK:
+ 		ret = g->ops.clk_arb.get_arbiter_clk_range(g,
+diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x '*.a' orig/nvgpu/drivers/gpu/nvgpu/hal/clk/clk_gm20b.c kernel-oot/nvgpu/drivers/gpu/nvgpu/hal/clk/clk_gm20b.c
+--- orig/nvgpu/drivers/gpu/nvgpu/hal/clk/clk_gm20b.c	2026-11-07 21:01:39.485383236 +0000
++++ kernel-oot/nvgpu/drivers/gpu/nvgpu/hal/clk/clk_gm20b.c	2026-11-08 04:28:22.108271837 +0000
+@@ -91,6 +91,13 @@
+ 
+ static void clk_setup_slide(struct gk20a *g, u32 clk_u);
+ 
++#ifndef CONFIG_TEGRA_DVFS
++/* T210_MAINLINE: VDD_GPU scaling, see platform_gk20a_tegra.c */
++extern void t210_gpu_vdd_set(unsigned long hz);
++extern int t210_gpu_mhz;
++#endif
++static int set_pll_target(struct gk20a *g, u32 freq, u32 old_freq);
++
+ static void dump_gpc_pll(struct gk20a *g, struct pll *gpll, u32 last_cfg)
+ {
+ #define __DUMP_REG(__addr_str__)					\
+@@ -1451,6 +1458,14 @@
+ {
+ 	struct clk_gk20a *clk = &g->clk;
+ 	int err = 0;
++#ifndef CONFIG_TEGRA_DVFS
++	/* T210_MAINLINE: voltage up before a faster clock (or PLL start), down after */
++	bool vup = !clk->gpc_pll.enabled || clk->gpc_pll.freq > clk->gpc_pll_last.freq;
++	unsigned long hz = rate_gpc2clk_to_gpu(clk->gpc_pll.freq);
++
++	if (vup)
++		t210_gpu_vdd_set(hz);
++#endif
+ 
+ 	nvgpu_log_fn(g, "last freq: %dMHz, target freq %dMHz",
+ 		     clk->gpc_pll_last.freq, clk->gpc_pll.freq);
+@@ -1471,6 +1486,10 @@
+ 	if (err == 0) {
+ 		clk->gpc_pll.enabled = true;
+ 		clk->gpc_pll_last = clk->gpc_pll;
++#ifndef CONFIG_TEGRA_DVFS
++		if (!vup)
++			t210_gpu_vdd_set(hz);
++#endif
+ 		return 0;
+ 	}
+ 
+@@ -1491,6 +1510,10 @@
+ 
+ 	nvgpu_mutex_acquire(&clk->clk_mutex);
+ 	clk->clk_hw_on = true;
++#ifndef CONFIG_TEGRA_DVFS
++	/* T210_MAINLINE: start at the configured rate (voltage is raised in set_pll_freq) */
++	set_pll_target(g, (u32)rate_gpu_to_gpc2clk(t210_gpu_mhz * 1000000UL), clk->gpc_pll.freq);
++#endif
+ 
+ 	err = gm20b_init_clk_setup_hw(g);
+ 	nvgpu_mutex_release(&clk->clk_mutex);
+diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x '*.a' orig/nvgpu/drivers/gpu/nvgpu/hal/fifo/mmu_fault_gk20a.c kernel-oot/nvgpu/drivers/gpu/nvgpu/hal/fifo/mmu_fault_gk20a.c
+--- orig/nvgpu/drivers/gpu/nvgpu/hal/fifo/mmu_fault_gk20a.c	2026-11-07 21:01:39.494915118 +0000
++++ kernel-oot/nvgpu/drivers/gpu/nvgpu/hal/fifo/mmu_fault_gk20a.c	2026-11-07 22:44:05.114930887 +0000
+@@ -39,6 +39,7 @@
+ #include <nvgpu/string.h>
+ 
+ #include <hal/fifo/mmu_fault_gk20a.h>
++#include "common/gr/gr_priv.h"
+ 
+ #include <nvgpu/hw/gk20a/hw_fifo_gk20a.h>
+ 
+@@ -246,6 +247,20 @@
+ 
+ 	nvgpu_log_fn(g, " ");
+ 
++	/* T210_MAINLINE: fault before GR is up -> dump + clear only, avoid deadlock in cg_pg_disable */
++	if (mmu_fault_engines == 0U && (g->gr == NULL || !g->gr->initialized)) {
++		struct mmu_fault_info mmfault_info;
++		fault_id = nvgpu_readl(g, fifo_intr_mmu_fault_id_r());
++		nvgpu_err(g, "early mmu fault id 0x%lx", fault_id);
++		for_each_set_bit(engine_mmu_fault_id, &fault_id, 32U) {
++			gk20a_fifo_mmu_fault_info_dump(g,
++				nvgpu_engine_mmu_fault_id_to_engine_id(g, (u32)engine_mmu_fault_id),
++				(u32)engine_mmu_fault_id, false, &mmfault_info);
++		}
++		nvgpu_writel(g, fifo_intr_mmu_fault_id_r(), (u32)fault_id);
++		return;
++	}
++
+ 	if (nvgpu_cg_pg_disable(g) != 0) {
+ 		nvgpu_warn(g, "fail to disable power mgmt");
+ 	}
+diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x '*.a' orig/nvgpu/drivers/gpu/nvgpu/os/linux/clk.c kernel-oot/nvgpu/drivers/gpu/nvgpu/os/linux/clk.c
+--- orig/nvgpu/drivers/gpu/nvgpu/os/linux/clk.c	2026-11-07 21:01:39.584868965 +0000
++++ kernel-oot/nvgpu/drivers/gpu/nvgpu/os/linux/clk.c	2026-11-08 04:23:42.702038755 +0000
+@@ -122,6 +122,10 @@
+ 
+ 	c = clk_get_sys("gpu_ref", "gpu_ref");
+ 	if (IS_ERR(c)) {
++		/* T210_MAINLINE: Referenztakt aus dem DT (platform->clk[0] = ref) */
++		struct gk20a_platform *platform = gk20a_get_platform(dev_from_gk20a(g));
++		if (platform->clk[0])
++			return clk_get_rate(platform->clk[0]);
+ 		nvgpu_err(g, "failed to get GPCPLL reference clock");
+ 		return 0;
+ 	}
+@@ -159,6 +163,11 @@
+ 					&min_mhz, &max_mhz);
+ 			if (err == 0) {
+ 				ret = max_mhz * 1000000L;
++			} else if (g->clk.tegra_clk != NULL) {
++				/* T210_MAINLINE: no DVFS/arbiter. ponytail: report current gpcclk as max
++				 * (round_rate calls back into get_maxrate, so no round_rate here);
++				 * use a voltage-aware table once vdd is scaled */
++				ret = 640000000; /* ponytail: 5W-mode cap; vdd table in platform_gk20a_tegra.c ends at 691 MHz */
+ 			}
+ 		}
+ 		break;
+diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x '*.a' orig/nvgpu/drivers/gpu/nvgpu/os/linux/fuse.c kernel-oot/nvgpu/drivers/gpu/nvgpu/os/linux/fuse.c
+--- orig/nvgpu/drivers/gpu/nvgpu/os/linux/fuse.c	2026-11-07 21:01:39.590748152 +0000
++++ kernel-oot/nvgpu/drivers/gpu/nvgpu/os/linux/fuse.c	2026-11-07 21:46:08.720767005 +0000
+@@ -17,6 +17,12 @@
+ #include <nvgpu/linux/nvmem.h>
+ 
+ #include <soc/tegra/fuse.h>
++#ifndef FUSE_GCPLEX_CONFIG_FUSE_0
++#define FUSE_GCPLEX_CONFIG_FUSE_0 0x1c8
++#endif
++#ifndef FUSE_RESERVED_CALIB0_0
++#define FUSE_RESERVED_CALIB0_0 0x204
++#endif
+ 
+ int nvgpu_tegra_get_gpu_speedo_id(struct gk20a *g, int *id)
+ {
+@@ -28,7 +34,10 @@
+ int nvgpu_tegra_fuse_read_reserved_calib(struct gk20a *g, u32 *val)
+ {
+ #ifdef CONFIG_NVGPU_NVMEM_FUSE
+-	return nvgpu_tegra_nvmem_read_reserved_calib(g, val);
++	/* T210_MAINLINE: ohne nvmem-Zelle im DT direkt aus den Fuses lesen */
++	if (nvgpu_tegra_nvmem_read_reserved_calib(g, val) == 0)
++		return 0;
++	return tegra_fuse_readl(FUSE_RESERVED_CALIB0_0, val);
+ #else
+ 	return tegra_fuse_readl(FUSE_RESERVED_CALIB0_0, val);
+ #endif
+@@ -37,7 +46,10 @@
+ int nvgpu_tegra_fuse_read_gcplex_config_fuse(struct gk20a *g, u32 *val)
+ {
+ #ifdef CONFIG_NVGPU_NVMEM_FUSE
+-	return nvgpu_tegra_nvmem_read_gcplex_config_fuse(g, val);
++	/* T210_MAINLINE: ohne nvmem-Zelle im DT direkt aus den Fuses lesen */
++	if (nvgpu_tegra_nvmem_read_gcplex_config_fuse(g, val) == 0)
++		return 0;
++	return tegra_fuse_readl(FUSE_GCPLEX_CONFIG_FUSE_0, val);
+ #else
+ 	return tegra_fuse_readl(FUSE_GCPLEX_CONFIG_FUSE_0, val);
+ #endif
+diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x '*.a' orig/nvgpu/drivers/gpu/nvgpu/os/linux/module.c kernel-oot/nvgpu/drivers/gpu/nvgpu/os/linux/module.c
+--- orig/nvgpu/drivers/gpu/nvgpu/os/linux/module.c	2026-11-07 21:01:39.592941228 +0000
++++ kernel-oot/nvgpu/drivers/gpu/nvgpu/os/linux/module.c	2026-11-07 21:36:52.963817137 +0000
+@@ -1901,9 +1901,11 @@
+ 	err = nvgpu_read_fuse_overrides(gk20a);
+ 
+ #ifdef CONFIG_RESET_CONTROLLER
+-	platform->reset_control = devm_reset_control_get(&dev->dev, NULL);
+-	if (IS_ERR(platform->reset_control))
+-		platform->reset_control = NULL;
++	if (!platform->reset_control) {
++		platform->reset_control = devm_reset_control_get(&dev->dev, NULL);
++		if (IS_ERR(platform->reset_control))
++			platform->reset_control = NULL;
++	}
+ #endif
+ 
+ 	err = gk20a_pm_init(&dev->dev);
+diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x '*.a' orig/nvgpu/drivers/gpu/nvgpu/os/linux/nvhost_host1x.c kernel-oot/nvgpu/drivers/gpu/nvgpu/os/linux/nvhost_host1x.c
+--- orig/nvgpu/drivers/gpu/nvgpu/os/linux/nvhost_host1x.c	2026-11-07 21:01:39.593425226 +0000
++++ kernel-oot/nvgpu/drivers/gpu/nvgpu/os/linux/nvhost_host1x.c	2026-11-08 04:45:25.098490718 +0000
+@@ -16,7 +16,11 @@
+ 
+ #include <linux/dma-fence.h>
+ #include <linux/file.h>
+-#include <linux/host1x-next.h>
++#include <linux/host1x.h>
++#ifndef HOST1X_SYNCPT_GPU /* T210_MAINLINE: in-tree host1x, extract helper lives in host1x-fence.ko */
++#define HOST1X_SYNCPT_GPU 0
++int host1x_fence_extract(struct dma_fence *fence, u32 *id, u32 *threshold);
++#endif
+ #include <linux/of_platform.h>
+ #include <linux/platform_device.h>
+ #include <linux/slab.h>
+@@ -38,6 +42,7 @@
+ #define TEGRA234_SYNCPT_SHIM_SIZE 0x04000000
+ 
+ static const struct of_device_id host1x_match[] = {
++	{ .compatible = "nvidia,tegra210-host1x", }, /* T210_MAINLINE */
+ 	{ .compatible = "nvidia,tegra186-host1x", },
+ 	{ .compatible = "nvidia,tegra194-host1x", },
+ 	{ .compatible = "nvidia,tegra234-host1x", },
+@@ -61,6 +66,11 @@
+ 		nvgpu_warn(g, "host1x device not available");
+ 		return -EPROBE_DEFER;
+ 	}
++	/* T210_MAINLINE: in-tree host1x may not be bound yet */
++	if (!platform_get_drvdata(host1x_pdev)) {
++		put_device(&host1x_pdev->dev);
++		return -EPROBE_DEFER;
++	}
+ 
+ 	g->nvhost = nvgpu_kzalloc(g, sizeof(struct nvgpu_nvhost_dev));
+ 	if (!g->nvhost)
+diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x '*.a' orig/nvgpu/drivers/gpu/nvgpu/os/linux/nvmem.c kernel-oot/nvgpu/drivers/gpu/nvgpu/os/linux/nvmem.c
+--- orig/nvgpu/drivers/gpu/nvgpu/os/linux/nvmem.c	2026-11-07 21:01:39.593716558 +0000
++++ kernel-oot/nvgpu/drivers/gpu/nvgpu/os/linux/nvmem.c	2026-11-07 23:05:01.627539180 +0000
+@@ -49,7 +49,8 @@
+ 
+ 	ret = nvmem_cell_read_u32(dev, NVMEM_CELL_GCPLEX_CONFIG_FUSE, val);
+ 	if (ret < 0) {
+-		nvgpu_err(g, "%s nvmem cell read failed %d",
++		/* T210_MAINLINE: caller falls back to tegra_fuse_readl */
++		nvgpu_log_info(g, "%s nvmem cell read failed %d",
+ 			  NVMEM_CELL_GCPLEX_CONFIG_FUSE, ret);
+ 		return ret;
+ 	}
+diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x '*.a' orig/nvgpu/drivers/gpu/nvgpu/os/linux/platform_gk20a_tegra.c kernel-oot/nvgpu/drivers/gpu/nvgpu/os/linux/platform_gk20a_tegra.c
+--- orig/nvgpu/drivers/gpu/nvgpu/os/linux/platform_gk20a_tegra.c	2026-11-07 21:01:39.595635426 +0000
++++ kernel-oot/nvgpu/drivers/gpu/nvgpu/os/linux/platform_gk20a_tegra.c	2026-11-08 04:40:20.827618291 +0000
+@@ -532,7 +532,7 @@
+  * the clock information to gk20a platform data.
+  */
+ 
+-static int gk20a_tegra_get_clocks(struct device *dev)
++static int __maybe_unused gk20a_tegra_get_clocks(struct device *dev)
+ {
+ 	struct gk20a_platform *platform = dev_get_drvdata(dev);
+ 	char devname[16];
+@@ -813,6 +813,8 @@
+ 	.round_rate = gm20b_round_rate_ops,
+ };
+ 
++static struct gk20a *t210_g;
++void t210_gpu_vdd_set(unsigned long hz);
+ static int gm20b_register_gpcclk(struct gk20a *g)
+ {
+ 	const char *parent_name = "pllg_ref";
+@@ -821,9 +823,15 @@
+ 	struct clk *c;
+ 	int err = 0;
+ 
++#if defined(CONFIG_TEGRA_DVFS)
+ 	/* make sure the clock is available */
+ 	if (!gk20a_clk_get(g))
+ 		return -ENOSYS;
++#else
++	/* T210_MAINLINE: Elterntakt ist PLL_G_REF aus dem DT (Name im Mainline: pll_g_ref) */
++	struct gk20a_platform *platform = gk20a_get_platform(dev_from_gk20a(g));
++	parent_name = __clk_get_name(platform->clk[0]);
++#endif
+ 
+ 	err = gm20b_init_clk_setup_sw(g);
+ 	if (err)
+@@ -837,7 +845,13 @@
+ 
+ 	/* Data in .init is copied by clk_register(), so stack variable OK */
+ 	clk->hw.init = &init;
++#if !defined(CONFIG_TEGRA_DVFS)
++	/* T210_MAINLINE: ohne dev registrieren, sonst ruft CCF pm_runtime_get auf die GPU
++	 * waehrend deren eigenem runtime-resume auf -> Deadlock */
++	c = clk_register(NULL, &clk->hw);
++#else
+ 	c = clk_register(dev_from_gk20a(g), &clk->hw);
++#endif
+ 	if (IS_ERR(c)) {
+ 		nvgpu_err(g, "Failed to register GPCPLL clock");
+ 		return -EINVAL;
+@@ -845,11 +859,120 @@
+ 
+ 	clk->g = g;
+ 	clk_register_clkdev(c, "gpcclk", "gpcclk");
++#if !defined(CONFIG_TEGRA_DVFS)
++	g->clk.tegra_clk = c;
++	g->clk.tegra_clk_parent = platform->clk[0];
++	t210_g = g;
++	nvgpu_info(g, "T210 mainline: gpcclk registered, parent %s, rate %lu", parent_name, clk_get_rate(c));
++#endif
+ 
+ 	return err;
+ }
+ #endif /* CONFIG_COMMON_CLK */
+ 
++
++#if !defined(CONFIG_TEGRA_DVFS)
++/* T210_MAINLINE: GPU-Strom ueber DT (vdd-supply, Takte gpu/ref/pwr, Reset, PMC-Clamp) wie nouveau */
++#include <linux/regulator/consumer.h>
++#include <soc/tegra/pmc.h>
++static struct regulator *t210_vdd;
++int t210_gpu_mhz = 640;	/* initial / current gpcclk target, MHz (<= 640) */
++
++/* VDD_GPU for gpcclk, from L4T 4.9 /sys/kernel/debug/tegra_dvfs/gpu_dvfs_t (this chip, row 15..30 C).
++ * ponytail: static, one temperature row; below 15 C L4T wants 958 mV, add a temp lookup if cold boots matter. */
++void t210_gpu_vdd_set(unsigned long hz)
++{
++	static const struct { unsigned int khz, mv; } tbl[] = {
++		{ 460800, 818 }, { 537600, 848 }, { 614400, 888 }, { 691200, 928 },
++	};
++	unsigned int i, mv = 928;
++
++	if (IS_ERR_OR_NULL(t210_vdd))
++		return;
++	for (i = 0; i < ARRAY_SIZE(tbl); i++)
++		if (hz / 1000 <= tbl[i].khz) { mv = tbl[i].mv; break; }
++	if (regulator_set_voltage(t210_vdd, mv * 1000, mv * 1000 + 20000))
++		pr_warn("nvgpu: set vdd-gpu %u mV failed\n", mv);
++	else
++		pr_info("nvgpu: vdd-gpu %u mV for %lu kHz (read back %d uV)\n", mv, hz / 1000, regulator_get_voltage(t210_vdd));
++}
++
++static int t210_gpu_mhz_set(const char *val, const struct kernel_param *kp)
++{
++	int mhz, ret = kstrtoint(val, 0, &mhz);
++
++	if (ret)
++		return ret;
++	if (mhz < 77 || mhz > 640)
++		return -EINVAL;
++	t210_gpu_mhz = mhz;
++	if (t210_g && t210_g->clk.tegra_clk)
++		return clk_set_rate(t210_g->clk.tegra_clk, mhz * 1000000UL);
++	return 0;
++}
++static int t210_gpu_mhz_get(char *buf, const struct kernel_param *kp)
++{
++	return sprintf(buf, "%lu\n", t210_g && t210_g->clk.tegra_clk ?
++		       clk_get_rate(t210_g->clk.tegra_clk) / 1000000 : (unsigned long)t210_gpu_mhz);
++}
++static const struct kernel_param_ops t210_gpu_mhz_ops = { .set = t210_gpu_mhz_set, .get = t210_gpu_mhz_get };
++module_param_cb(t210_gpu_mhz, &t210_gpu_mhz_ops, NULL, 0644);
++static struct clk *t210_clk_gpu;
++static int t210_mainline_power_up(struct device *dev)
++{
++	struct gk20a_platform *platform = dev_get_drvdata(dev);
++	int ret;
++
++	t210_vdd = devm_regulator_get(dev, "vdd");
++	if (IS_ERR(t210_vdd))
++		return PTR_ERR(t210_vdd);
++	t210_clk_gpu = devm_clk_get(dev, "gpu");
++	if (IS_ERR(t210_clk_gpu))
++		return PTR_ERR(t210_clk_gpu);
++	platform->clk[0] = devm_clk_get(dev, "ref");
++	if (IS_ERR(platform->clk[0]))
++		return PTR_ERR(platform->clk[0]);
++	platform->clk[1] = devm_clk_get(dev, "pwr");
++	if (IS_ERR(platform->clk[1]))
++		return PTR_ERR(platform->clk[1]);
++	platform->clk[2] = NULL;
++	platform->clk[3] = NULL;
++	platform->num_clks = 2;
++
++	if (!platform->reset_control) {
++		platform->reset_control = devm_reset_control_get(dev, "gpu");
++		if (IS_ERR(platform->reset_control))
++			return PTR_ERR(platform->reset_control);
++	}
++	ret = regulator_set_voltage(t210_vdd, 1000000, 1000000);
++	if (ret)
++		dev_warn(dev, "set vdd 1.0V failed: %d\n", ret);
++	ret = regulator_enable(t210_vdd);
++	if (ret)
++		return ret;
++	clk_set_rate(platform->clk[1], 204000000);
++	ret = clk_prepare_enable(t210_clk_gpu) ?:
++	      clk_prepare_enable(platform->clk[0]) ?:
++	      clk_prepare_enable(platform->clk[1]);
++	if (ret)
++		return ret;
++	udelay(10);
++	if (platform->reset_control)
++		reset_control_assert(platform->reset_control);
++	udelay(10);
++	ret = tegra_powergate_remove_clamping(TEGRA_POWERGATE_3D);
++	if (ret)
++		dev_warn(dev, "remove clamping failed: %d\n", ret);
++	udelay(10);
++	if (platform->reset_control)
++		reset_control_deassert(platform->reset_control);
++	udelay(10);
++	dev_info(dev, "T210 mainline: GPU powered up (vdd %d uV, ref %lu Hz)\n",
++		 regulator_get_voltage(t210_vdd), clk_get_rate(platform->clk[0]));
++	return 0;
++}
++#endif
++
+ static int gk20a_tegra_probe(struct device *dev)
+ {
+ 	struct gk20a_platform *platform = dev_get_drvdata(dev);
+@@ -879,7 +1002,10 @@
+ 
+ #ifdef CONFIG_TEGRA_GK20A_NVHOST
+ 	ret = nvgpu_get_nvhost_dev(platform->g);
+-	if (ret)
++	if (ret == -ENOSYS) {
++		dev_warn(dev, "T210 mainline: no host1x, syncpoints disabled\n");
++		platform->has_syncpoints = false;
++	} else if (ret)
+ 		return ret;
+ #endif
+ 
+@@ -922,7 +1048,14 @@
+ 	if (platform->platform_chip_id == TEGRA_132)
+ 		platform->soc_name = "tegra13x";
+ 
++#if !defined(CONFIG_TEGRA_DVFS)
++	platform->can_railgate_init = false;
++	ret = t210_mainline_power_up(dev);
++	if (ret)
++		return ret;
++#else
+ 	gk20a_tegra_get_clocks(dev);
++#endif
+ 	nvgpu_linux_init_clk_support(platform->g);
+ 
+ 	if (platform->clk_register) {

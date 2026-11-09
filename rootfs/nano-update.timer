@@ -1,0 +1,8 @@
+[Unit]
+Description=Daily check for a newer release (shown at login)
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=1d
+RandomizedDelaySec=1h
+[Install]
+WantedBy=timers.target

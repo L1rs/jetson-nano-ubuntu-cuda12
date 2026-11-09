@@ -1,0 +1,41 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# nano-update: keeps Ubuntu 26.04 on the Jetson Nano up to date with the GitHub releases of this project.
+#   nano-update               show the installed and the newest version and what changed
+#   sudo nano-update install  download the newest release and run its update.sh (kernel updates keep the old kernel
+#                             as boot entry "u2604-prev"; your notebooks and settings are not overwritten)
+#   nano-update check         only refresh the "update available" note shown at login (used by the daily timer)
+# Installed version and GitHub repository: /etc/jetson-nano-version (line 1: tag, line 2: owner/repo).
+set -e
+V=/etc/jetson-nano-version; STATE=/var/lib/nano-update/latest
+CUR=$(sed -n 1p $V 2>/dev/null); SLUG=$(sed -n 2p $V 2>/dev/null)
+API=${NANO_UPDATE_API:-https://api.github.com/repos/$SLUG/releases/latest}
+latest() {  # prints: tag <TAB> tarball url <TAB> release notes (one line per field, notes last)
+  curl -fsSL -m 20 -H 'Accept: application/vnd.github+json' "$API" | python3 -c '
+import json, sys; r = json.load(sys.stdin)
+print(r["tag_name"]); print(r["tarball_url"]); print(r.get("html_url", "")); print(r.get("body") or "")'
+}
+newer() { [ "$1" != "$CUR" ] && [ "$(printf '%s\n%s\n' "${CUR#v}" "${1#v}" | sort -V | tail -1)" = "${1#v}" ]; }
+info=$(latest 2>/dev/null) || { [ "${1:-}" = check ] && exit 0; echo "Cannot reach the release list ($API)."; exit 1; }
+TAG=$(echo "$info" | sed -n 1p); URL=$(echo "$info" | sed -n 2p); PAGE=$(echo "$info" | sed -n 3p)
+case "${1:-show}" in
+  check)
+    mkdir -p "$(dirname $STATE)"
+    if newer "$TAG"; then echo "$TAG" > $STATE; else rm -f $STATE; fi ;;
+  show)
+    echo "installed: ${CUR:-unknown}   newest: $TAG"
+    if newer "$TAG"; then
+      echo; echo "What is new in $TAG ($PAGE):"; echo "$info" | sed -n '4,$p' | sed 's/^/  /'
+      echo; echo "Update with:  sudo nano-update install"
+    else echo "Up to date."; fi ;;
+  install)
+    [ "$(id -u)" = 0 ] || { echo "run with sudo" >&2; exit 1; }
+    newer "$TAG" || [ -n "$FORCE" ] || { echo "Up to date ($CUR)."; exit 0; }
+    exec 9>/run/nano-update.lock; flock -n 9 || { echo "another nano-update is running" >&2; exit 1; }
+    T=$(mktemp -d /var/tmp/nano-update-src.XXXX); trap 'rm -rf $T' EXIT
+    echo "Downloading $TAG ..."; curl -fsSL --retry 3 -m 300 -o $T/src.tgz "$URL"
+    tar xzf $T/src.tgz -C $T --strip-components=1 && [ -f $T/update.sh ] || { echo "download of $TAG is incomplete" >&2; exit 1; }
+    bash $T/update.sh
+    rm -f $STATE ;;
+  *) sed -n '3,8p' "$0"; exit 1 ;;
+esac

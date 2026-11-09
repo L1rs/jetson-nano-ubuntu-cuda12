@@ -1,0 +1,21 @@
+#!/bin/busybox sh
+# Initramfs-Init fuer Ubuntu 26.04 im Unterverzeichnis von p1 (ext4). Statisches busybox, keine Module noetig.
+/bin/busybox --install -s /bin
+mount -t proc proc /proc; mount -t sysfs sys /sys; mount -t devtmpfs dev /dev
+root=; sub=/opt/u2604
+for a in $(cat /proc/cmdline); do case $a in root=*) root=${a#root=};; u2604root=*) sub=${a#u2604root=};; esac; done
+fail() { echo "INITRAMFS: $*"; exec sh; }
+dev=
+for i in $(seq 1 100); do
+  dev=$(findfs "$root" 2>/dev/null)
+  # ponytail: Fallback fest auf die SD-Namen; findfs kann PARTUUID nicht in jedem busybox-Build
+  [ -b "$dev" ] || for d in /dev/mmcblk1p1 /dev/mmcblk0p1; do [ -b $d ] && dev=$d && break; done
+  [ -b "$dev" ] && break; sleep 0.3
+done
+[ -b "$dev" ] || fail "kein Root-Geraet fuer $root"
+mount -t ext4 -o rw "$dev" /mnt || fail "mount $dev"
+[ -x /mnt$sub/sbin/init ] || fail "kein /sbin/init in $sub"
+mount --bind /mnt$sub /new || fail "bind $sub"
+mkdir -p /new/media/l4t && mount --bind /mnt /new/media/l4t
+for m in proc sys dev; do mount --move /$m /new/$m; done
+exec switch_root /new /sbin/init
