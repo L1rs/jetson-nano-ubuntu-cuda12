@@ -34,4 +34,5 @@ A harmless message `Can't initialize nvrm channel` may appear on stderr.
 
 - `nvgpu` cannot be unloaded and reloaded (`rmmod` fails with EBUSY or hangs); reboot instead.
 - No railgating. Clock scaling is done by `tegra-dvfs.service`, not by devfreq. TensorRT 8.0 works through the L4T libraries, see [tensorrt.md](tensorrt.md).
+- Only one process can use the GPU at a time. A second process gets `EBUSY` when it creates its GPU address space (PyTorch then ends with a segmentation fault, `dmesg` shows `nvgpu: GPU in use by PID ...`). Reason: two processes with a GPU context while the camera runs corrupted kernel memory (kernel panic, reproduced on the serial console). Stop the other notebook kernel first.
 - A deliberate MMU fault is handled cleanly (CUDA error 719) and the GPU stays usable.

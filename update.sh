@@ -8,14 +8,14 @@
 #   3. ~/torch-venv: new PyTorch/torchvision wheels if the release has a newer build; missing Python packages are added
 #   4. tools in /usr/local/sbin, /opt/nanotrt, systemd units, small system fixes of this release
 #   5. robot software in ~/jetbot and ~/jetracer (Python code is replaced; notebooks: only new ones are added)
-#   6. kernel, if the release has a newer one (the previous one stays bootable as boot entry "u2604-prev")
+#   6. kernel and its modules, if the release has a newer version or build (the previous one stays bootable as boot entry "u2604-prev")
 #   7. version in /etc/jetson-nano-version (written last: an interrupted update simply runs again)
 # Not touched: your notebooks, settings, other Python packages, the device tree (board specific), L4T.
 [ -n "${BASH_VERSION:-}" ] || exec bash "$0" "$@"   # older nano-update versions start it with sh
 set -Eeuo pipefail
 HERE=$(dirname "$(readlink -f "$0")"); TAG=v$(cat "$HERE/VERSION")
 val() { sed -n "s/^$1=//p" "$HERE/install.sh" | head -1; }
-KVER=$(sed -n 's/^export KVER=//p' "$HERE/install.sh"); TORCH_WHL=$(val TORCH_WHL); VISION_WHL=$(val VISION_WHL)
+KVER=$(sed -n 's/^export KVER=//p' "$HERE/install.sh"); KBUILD=$(val KBUILD | cut -d" " -f1); TORCH_WHL=$(val TORCH_WHL); VISION_WHL=$(val VISION_WHL)
 SLUG=$(sed -n 2p /etc/jetson-nano-version 2>/dev/null || true)
 RELEASE_URL=${RELEASE_URL:-https://github.com/$SLUG/releases/download/$TAG}
 B=/media/l4t/boot/mainline; E=/media/l4t/boot/extlinux/extlinux.conf
@@ -28,7 +28,7 @@ echo "== $(date) updating to $TAG"
 pyver() { "$V/bin/python" -c 'import importlib.metadata as m, sys; print(m.version(sys.argv[1]))' "$1" 2>/dev/null || echo none; }
 NEW_TORCH=$(echo "$TORCH_WHL" | cut -d- -f2); NEW_VISION=$(echo "$VISION_WHL" | cut -d- -f2)
 [ "$(pyver torch)" != "$NEW_TORCH" ] || [ "$(pyver torchvision)" != "$NEW_VISION" ] && WHEELS=1 || WHEELS=
-[ -d /usr/lib/modules/$KVER ] && KERNEL= || KERNEL=1
+[ "$(cat /usr/lib/modules/$KVER/nano-build 2>/dev/null)" = "$KBUILD" ] && KERNEL= || KERNEL=1   # new version or new build (e.g. GPU driver fix)
 
 S=1; echo "== 1. Download and verify${KERNEL:+ kernel $KVER}${WHEELS:+ PyTorch $NEW_TORCH}"
 T=$(mktemp -d /var/tmp/nano-update.XXXX); trap 'rm -rf $T' EXIT
@@ -80,7 +80,7 @@ cp "$HERE"/jetracer/nvidia_racecar.py "$HERE"/jetracer/racecar.py "$HERE"/jetrac
 cp "$HERE/jetracer/road_following.py" $H/jetracer/; install -m 755 "$HERE/camera/nanocam.py" /opt/nanocam/
 chown -R "$U:$U" $H/jetbot $H/jetracer
 
-S=6; echo "== 6. Kernel $KVER"
+S=6; echo "== 6. Kernel $KVER (build $KBUILD)"
 if [ -z "$KERNEL" ]; then echo "already installed"; else
   tar xzf $T/linux-$KVER-t210-jetson-nano.tar.gz -C $T
   cp $B/Image $B/Image-prev                                # previous kernel stays bootable

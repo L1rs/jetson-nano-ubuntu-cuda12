@@ -37,13 +37,21 @@ def cpu_times():
 def busiest(prev, cur):   # hoechste Auslastung eines Kerns seit der letzten Messung
     return max(((t1 - t0) - (i1 - i0)) / max(1, t1 - t0) for (t0, i0), (t1, i1) in zip(prev, cur)) if len(prev) == len(cur) else 1.0
 
+def syncpt_irqs():
+    """host1x syncpoint interrupts (rise only while the camera captures, ~60/s; idle 0).
+    EMC must not switch during a capture: that hangs the VI (MW_ACK_DONE syncpt timeout)."""
+    for l in open('/proc/interrupts'):
+        if l.rstrip().endswith('host1x_syncpt'): return sum(int(x) for x in l.split()[1:5] if x.isdigit())
+    return 0
+
 def main():
-    high = True; set_level(True); quiet = 0.0; prev = cpu_times()
+    high = True; set_level(True); quiet = 0.0; prev = cpu_times(); irq = syncpt_irqs()
     while True:
         time.sleep(0.25); cur = cpu_times()
         try: gload = int(open(LOAD).read())
         except (OSError, ValueError): gload = 1000
-        busy = gload > 50 or busiest(prev, cur) > CPU_BUSY; prev = cur
+        irq0, irq = irq, syncpt_irqs()
+        busy = gload > 50 or busiest(prev, cur) > CPU_BUSY or irq != irq0; prev = cur
         if busy:
             quiet = 0.0
             if not high: set_level(True); high = True

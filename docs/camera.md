@@ -31,5 +31,6 @@ Lens shading and colour matrix are read from `camera_overrides.isp` (4000 K surf
 
 ## Limitations
 
+- Own lens shading calibration: if `~/.nanocam-lsc.npy` exists (float32 array H x W x 3, gain per pixel and channel, made from an evenly lit white image), it replaces the shading of the ISP file. White balance stays automatic.
 - Mixed light gives a slightly bluish image; lens shading is only calibrated for 4000 K.
 - No highlight protection in auto exposure.

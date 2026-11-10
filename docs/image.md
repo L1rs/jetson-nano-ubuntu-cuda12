@@ -2,7 +2,7 @@
 
 The image is an SD card made with `install.sh` on NVIDIA's JetPack 4.6.1 image: L4T 32.7.1 plus Ubuntu 26.04 in `/opt/u2604`. User `jetson`, password `jetson` in both systems (change it). Size: about 6.7 GB download (`.img.xz`), 25.5 GB written, so it needs an SD card of **32 GB or more**.
 
-Download v0.2.0: [jetson-nano-ubuntu-26.04-v0.2.0.img.xz](https://drive.google.com/file/d/1KbnhAZUMzqA1VpW7FEuMFEQuR4TZ2x3T/view?usp=sharing), [checksum file](https://drive.google.com/file/d/1nOEWWLh2C8F0RUmd4KOedo6E30KMWA_2/view?usp=sharing) (SHA-256 `d4bdefab4a9329881b238ea7acf39db422725f173a74f5da1183b5caf161e1a8`). GitHub release files are limited to 2 GB, so the image is hosted on Google Drive.
+Download v0.2.0: [jetson-nano-ubuntu-26.04-v0.2.0.img.xz](https://drive.google.com/file/d/1KbnhAZUMzqA1VpW7FEuMFEQuR4TZ2x3T/view?usp=sharing), [checksum file](https://drive.google.com/file/d/1nOEWWLh2C8F0RUmd4KOedo6E30KMWA_2/view?usp=sharing) (SHA-256 `d4bdefab4a9329881b238ea7acf39db422725f173a74f5da1183b5caf161e1a8`). GitHub release files are limited to 2 GB, so the image is hosted on Google Drive. Newer releases do not come with a new image: flash v0.2.0, then run `sudo nano-update install`.
 
 ## Using it
 

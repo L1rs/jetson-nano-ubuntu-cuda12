@@ -46,6 +46,14 @@ Check `ls /dev/video0` and `v4l2-ctl --list-formats-ext`. One `frame start syncp
 
 Wait about 40 s after a cold start. The WLAN profiles are copied from the L4T system; Ethernet uses DHCP. With a serial console (115200 8N1) you can watch the boot. Selecting a boot entry is possible only over the serial console; otherwise edit `DEFAULT` in `extlinux.conf` from another computer or from the other system. The L4T entry is `primary`.
 
+## A notebook dies with "Kernel died" / a GPU script ends with a segmentation fault
+
+Another process already uses the GPU (only one at a time, see [gpu-cuda.md](gpu-cuda.md#known-restrictions)). `dmesg | grep "GPU in use"` shows its PID. Shut down the other notebook kernel (*Kernel → Shut Down Kernel*) and start again.
+
+## The camera image freezes (`syncpt timeout` in `dmesg`)
+
+Fixed in v0.2.1: `tegra-dvfs` no longer lowers the memory clock while the camera captures. Update with `sudo nano-update install`.
+
 ## `pip`/PyTorch problems
 
 Use the venv: `~/torch-venv/bin/python`. Python 3.14 wheels are needed; the PyTorch wheel is for `cp314` only.

@@ -1,6 +1,6 @@
 diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x out -x nvethernetrm -x '*.a' orig/nvidia-oot/drivers/gpu/host1x/context.c kernel-oot/nvidia-oot/drivers/gpu/host1x/context.c
 --- orig/nvidia-oot/drivers/gpu/host1x/context.c	2026-11-07 21:01:42.026282896 +0000
-+++ kernel-oot/nvidia-oot/drivers/gpu/host1x/context.c	2026-11-07 21:32:08.617635594 +0000
++++ kernel-oot/nvidia-oot/drivers/gpu/host1x/context.c	2026-11-09 02:52:44.081926134 +0000
 @@ -15,6 +15,12 @@
  #include "context.h"
  #include "dev.h"
@@ -16,7 +16,7 @@ diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.s
  	struct host1x_memory_context_list *cdl = &host1x->context_list;
 diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x out -x nvethernetrm -x '*.a' orig/nvidia-oot/drivers/gpu/host1x/context.h kernel-oot/nvidia-oot/drivers/gpu/host1x/context.h
 --- orig/nvidia-oot/drivers/gpu/host1x/context.h	2026-11-07 21:01:42.026348146 +0000
-+++ kernel-oot/nvidia-oot/drivers/gpu/host1x/context.h	2026-11-07 21:32:08.617698885 +0000
++++ kernel-oot/nvidia-oot/drivers/gpu/host1x/context.h	2026-11-09 02:52:44.082032217 +0000
 @@ -13,7 +13,7 @@
  
  struct host1x;
@@ -28,7 +28,7 @@ diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.s
  	struct mutex lock;
 diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x out -x nvethernetrm -x '*.a' orig/nvidia-oot/drivers/gpu/host1x/dev.c kernel-oot/nvidia-oot/drivers/gpu/host1x/dev.c
 --- orig/nvidia-oot/drivers/gpu/host1x/dev.c	2026-11-07 21:01:42.026550770 +0000
-+++ kernel-oot/nvidia-oot/drivers/gpu/host1x/dev.c	2026-11-07 21:32:08.617767094 +0000
++++ kernel-oot/nvidia-oot/drivers/gpu/host1x/dev.c	2026-11-09 02:52:44.082163342 +0000
 @@ -1144,13 +1144,20 @@
  {
  	int err;
@@ -62,7 +62,7 @@ diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.s
  
 diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x out -x nvethernetrm -x '*.a' orig/nvidia-oot/drivers/gpu/host1x-fence/dev.c kernel-oot/nvidia-oot/drivers/gpu/host1x-fence/dev.c
 --- orig/nvidia-oot/drivers/gpu/host1x-fence/dev.c	2026-11-07 21:01:42.024107154 +0000
-+++ kernel-oot/nvidia-oot/drivers/gpu/host1x-fence/dev.c	2026-11-08 04:46:19.616569673 +0000
++++ kernel-oot/nvidia-oot/drivers/gpu/host1x-fence/dev.c	2026-11-09 02:52:44.082314884 +0000
 @@ -7,7 +7,8 @@
  #include <linux/cdev.h>
  #include <linux/file.h>
@@ -131,7 +131,7 @@ diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.s
  };
 diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x out -x nvethernetrm -x '*.a' orig/nvidia-oot/drivers/platform/tegra/mc-utils/mc-utils.c kernel-oot/nvidia-oot/drivers/platform/tegra/mc-utils/mc-utils.c
 --- orig/nvidia-oot/drivers/platform/tegra/mc-utils/mc-utils.c	2026-11-07 21:01:42.262729264 +0000
-+++ kernel-oot/nvidia-oot/drivers/platform/tegra/mc-utils/mc-utils.c	2026-11-07 21:39:18.986914089 +0000
++++ kernel-oot/nvidia-oot/drivers/platform/tegra/mc-utils/mc-utils.c	2026-11-09 02:52:44.082784592 +0000
 @@ -397,8 +397,8 @@
  		ops = &mc_utils_t23x_ops;
  		return tegra_mc_utils_init_t23x();
@@ -145,7 +145,7 @@ diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.s
  
 diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x out -x nvethernetrm -x '*.a' orig/nvidia-oot/drivers/video/tegra/nvmap/Makefile.memory.configs kernel-oot/nvidia-oot/drivers/video/tegra/nvmap/Makefile.memory.configs
 --- orig/nvidia-oot/drivers/video/tegra/nvmap/Makefile.memory.configs	2026-11-07 21:01:42.281685113 +0000
-+++ kernel-oot/nvidia-oot/drivers/video/tegra/nvmap/Makefile.memory.configs	2026-11-07 21:32:08.617850635 +0000
++++ kernel-oot/nvidia-oot/drivers/video/tegra/nvmap/Makefile.memory.configs	2026-11-09 02:52:44.082887175 +0000
 @@ -137,7 +137,7 @@
  NVMAP_CONFIG_HANDLE_AS_ID := y
  NVMAP_CONFIG_FD_START := 0x0
@@ -157,7 +157,7 @@ diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.s
  NVMAP_CONFIG_COLOR_PAGES := n
 diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x out -x nvethernetrm -x '*.a' orig/nvidia-oot/drivers/video/tegra/nvmap/nvmap_alloc.c kernel-oot/nvidia-oot/drivers/video/tegra/nvmap/nvmap_alloc.c
 --- orig/nvidia-oot/drivers/video/tegra/nvmap/nvmap_alloc.c	2026-11-07 21:01:42.281902029 +0000
-+++ kernel-oot/nvidia-oot/drivers/video/tegra/nvmap/nvmap_alloc.c	2026-11-08 11:46:54.579372008 +0000
++++ kernel-oot/nvidia-oot/drivers/video/tegra/nvmap/nvmap_alloc.c	2026-11-09 02:52:44.083015050 +0000
 @@ -792,7 +792,7 @@
  							if (cpu_addr != NULL) {
  								memset(cpu_addr, 0, granule_size);
@@ -178,7 +178,7 @@ diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.s
  #endif
 diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x out -x nvethernetrm -x '*.a' orig/nvidia-oot/drivers/video/tegra/nvmap/nvmap_cache.c kernel-oot/nvidia-oot/drivers/video/tegra/nvmap/nvmap_cache.c
 --- orig/nvidia-oot/drivers/video/tegra/nvmap/nvmap_cache.c	2026-11-07 21:01:42.281976570 +0000
-+++ kernel-oot/nvidia-oot/drivers/video/tegra/nvmap/nvmap_cache.c	2026-11-08 11:46:54.578976924 +0000
++++ kernel-oot/nvidia-oot/drivers/video/tegra/nvmap/nvmap_cache.c	2026-11-09 02:52:44.083153384 +0000
 @@ -58,7 +58,7 @@
  {
  	if (op == NVMAP_CACHE_OP_WB_INV)
@@ -190,7 +190,7 @@ diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.s
  #endif
 diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x out -x nvethernetrm -x '*.a' orig/nvidia-oot/drivers/video/tegra/nvmap/nvmap_core.c kernel-oot/nvidia-oot/drivers/video/tegra/nvmap/nvmap_core.c
 --- orig/nvidia-oot/drivers/video/tegra/nvmap/nvmap_core.c	2026-11-07 21:01:42.282155444 +0000
-+++ kernel-oot/nvidia-oot/drivers/video/tegra/nvmap/nvmap_core.c	2026-11-08 11:46:54.579595383 +0000
++++ kernel-oot/nvidia-oot/drivers/video/tegra/nvmap/nvmap_core.c	2026-11-09 02:52:44.083267342 +0000
 @@ -113,7 +113,7 @@
  	if (h->flags != NVMAP_HANDLE_UNCACHEABLE &&
  	    h->flags != NVMAP_HANDLE_WRITE_COMBINE) {
@@ -202,7 +202,7 @@ diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.s
  #endif
 diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x out -x nvethernetrm -x '*.a' orig/nvidia-oot/drivers/video/tegra/nvmap/nvmap_init.c kernel-oot/nvidia-oot/drivers/video/tegra/nvmap/nvmap_init.c
 --- orig/nvidia-oot/drivers/video/tegra/nvmap/nvmap_init.c	2026-11-07 21:01:42.283134233 +0000
-+++ kernel-oot/nvidia-oot/drivers/video/tegra/nvmap/nvmap_init.c	2026-11-07 23:23:20.913492301 +0000
++++ kernel-oot/nvidia-oot/drivers/video/tegra/nvmap/nvmap_init.c	2026-11-09 02:52:44.083382050 +0000
 @@ -1046,6 +1046,16 @@
  		nvmap_heap_deinit();
  		goto fail;
@@ -222,7 +222,7 @@ diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.s
  	return e;
 diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x out -x nvethernetrm -x '*.a' orig/nvidia-oot/drivers/video/tegra/nvmap/nvmap_priv.h kernel-oot/nvidia-oot/drivers/video/tegra/nvmap/nvmap_priv.h
 --- orig/nvidia-oot/drivers/video/tegra/nvmap/nvmap_priv.h	2026-11-07 21:01:42.283641356 +0000
-+++ kernel-oot/nvidia-oot/drivers/video/tegra/nvmap/nvmap_priv.h	2026-11-07 21:32:08.617912719 +0000
++++ kernel-oot/nvidia-oot/drivers/video/tegra/nvmap/nvmap_priv.h	2026-11-09 02:52:44.083511134 +0000
 @@ -878,11 +878,11 @@
  int nvmap_sci_ipc_init(void);
  void nvmap_sci_ipc_exit(void);
@@ -239,7 +239,7 @@ diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.s
  #endif
 diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x '*.a' orig/nvgpu/drivers/gpu/nvgpu/common/clk_arb/clk_arb.c kernel-oot/nvgpu/drivers/gpu/nvgpu/common/clk_arb/clk_arb.c
 --- orig/nvgpu/drivers/gpu/nvgpu/common/clk_arb/clk_arb.c	2026-11-07 21:01:39.449255114 +0000
-+++ kernel-oot/nvgpu/drivers/gpu/nvgpu/common/clk_arb/clk_arb.c	2026-11-07 23:00:40.500040841 +0000
++++ kernel-oot/nvgpu/drivers/gpu/nvgpu/common/clk_arb/clk_arb.c	2026-11-09 02:52:44.083643384 +0000
 @@ -667,6 +667,11 @@
  {
  	int ret = -EINVAL;
@@ -252,9 +252,91 @@ diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.s
  	switch (api_domain) {
  	case NVGPU_CLK_DOMAIN_MCLK:
  		ret = g->ops.clk_arb.get_arbiter_clk_range(g,
+diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x '*.a' orig/nvgpu/drivers/gpu/nvgpu/common/mm/as.c kernel-oot/nvgpu/drivers/gpu/nvgpu/common/mm/as.c
+--- orig/nvgpu/drivers/gpu/nvgpu/common/mm/as.c	2026-11-07 21:01:39.459613869 +0000
++++ kernel-oot/nvgpu/drivers/gpu/nvgpu/common/mm/as.c	2026-11-10 05:43:20.790732416 +0000
+@@ -145,6 +145,47 @@
+ 	return 0;
+ }
+ 
++#ifdef __KERNEL__
++#include <linux/sched.h>
++/*
++ * Jetson Nano / mainline: only one process may use the GPU. Two processes with a GPU context while
++ * the camera (tegra-video) captures corrupt kernel memory -> kernel panic. A second process gets
++ * -EBUSY when it creates a GPU address space.
++ */
++static DEFINE_SPINLOCK(gpu_owner_lock);
++static pid_t gpu_owner;
++static int gpu_owner_refs;
++
++static int gpu_owner_get(void)
++{
++	int err = 0;
++
++	spin_lock(&gpu_owner_lock);
++	if (gpu_owner_refs > 0 && gpu_owner != current->tgid) {
++		err = -EBUSY;
++	} else {
++		gpu_owner = current->tgid;
++		gpu_owner_refs++;
++	}
++	spin_unlock(&gpu_owner_lock);
++	if (err != 0)
++		pr_warn_ratelimited("nvgpu: GPU in use by PID %d, rejected %s (PID %d)\n",
++				    gpu_owner, current->comm, current->tgid);
++	return err;
++}
++
++static void gpu_owner_put(void)
++{
++	spin_lock(&gpu_owner_lock);
++	if (gpu_owner_refs > 0 && --gpu_owner_refs == 0)
++		gpu_owner = 0;
++	spin_unlock(&gpu_owner_lock);
++}
++#else
++static int gpu_owner_get(void) { return 0; }
++static void gpu_owner_put(void) { }
++#endif
++
+ int gk20a_as_alloc_share(struct gk20a *g,
+ 			u32 big_page_size, u32 flags, u64 va_range_start,
+ 			u64 va_range_end, u64 va_range_split,
+@@ -160,8 +201,14 @@
+ 	}
+ 
+ 	*out = NULL;
++	err = gpu_owner_get();
++	if (err != 0) {
++		nvgpu_put(g);
++		return err;
++	}
+ 	as_share = nvgpu_kzalloc(g, sizeof(*as_share));
+ 	if (as_share == NULL) {
++		gpu_owner_put();
+ 		return -ENOMEM;
+ 	}
+ 
+@@ -186,6 +233,7 @@
+ 
+ failed:
+ 	nvgpu_kfree(g, as_share);
++	gpu_owner_put();
+ 	return err;
+ }
+ 
+@@ -228,6 +276,7 @@
+ release_fail:
+ 	nvgpu_put(g);
+ 	nvgpu_kfree(g, as_share);
++	gpu_owner_put();
+ 
+ 	return err;
+ }
 diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x '*.a' orig/nvgpu/drivers/gpu/nvgpu/hal/clk/clk_gm20b.c kernel-oot/nvgpu/drivers/gpu/nvgpu/hal/clk/clk_gm20b.c
 --- orig/nvgpu/drivers/gpu/nvgpu/hal/clk/clk_gm20b.c	2026-11-07 21:01:39.485383236 +0000
-+++ kernel-oot/nvgpu/drivers/gpu/nvgpu/hal/clk/clk_gm20b.c	2026-11-08 04:28:22.108271837 +0000
++++ kernel-oot/nvgpu/drivers/gpu/nvgpu/hal/clk/clk_gm20b.c	2026-11-09 02:52:44.083808259 +0000
 @@ -91,6 +91,13 @@
  
  static void clk_setup_slide(struct gk20a *g, u32 clk_u);
@@ -308,7 +390,7 @@ diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.s
  	nvgpu_mutex_release(&clk->clk_mutex);
 diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x '*.a' orig/nvgpu/drivers/gpu/nvgpu/hal/fifo/mmu_fault_gk20a.c kernel-oot/nvgpu/drivers/gpu/nvgpu/hal/fifo/mmu_fault_gk20a.c
 --- orig/nvgpu/drivers/gpu/nvgpu/hal/fifo/mmu_fault_gk20a.c	2026-11-07 21:01:39.494915118 +0000
-+++ kernel-oot/nvgpu/drivers/gpu/nvgpu/hal/fifo/mmu_fault_gk20a.c	2026-11-07 22:44:05.114930887 +0000
++++ kernel-oot/nvgpu/drivers/gpu/nvgpu/hal/fifo/mmu_fault_gk20a.c	2026-11-09 02:52:44.083959300 +0000
 @@ -39,6 +39,7 @@
  #include <nvgpu/string.h>
  
@@ -340,7 +422,7 @@ diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.s
  	}
 diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x '*.a' orig/nvgpu/drivers/gpu/nvgpu/os/linux/clk.c kernel-oot/nvgpu/drivers/gpu/nvgpu/os/linux/clk.c
 --- orig/nvgpu/drivers/gpu/nvgpu/os/linux/clk.c	2026-11-07 21:01:39.584868965 +0000
-+++ kernel-oot/nvgpu/drivers/gpu/nvgpu/os/linux/clk.c	2026-11-08 04:23:42.702038755 +0000
++++ kernel-oot/nvgpu/drivers/gpu/nvgpu/os/linux/clk.c	2026-11-09 02:52:44.084071425 +0000
 @@ -122,6 +122,10 @@
  
  	c = clk_get_sys("gpu_ref", "gpu_ref");
@@ -366,7 +448,7 @@ diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.s
  		break;
 diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x '*.a' orig/nvgpu/drivers/gpu/nvgpu/os/linux/fuse.c kernel-oot/nvgpu/drivers/gpu/nvgpu/os/linux/fuse.c
 --- orig/nvgpu/drivers/gpu/nvgpu/os/linux/fuse.c	2026-11-07 21:01:39.590748152 +0000
-+++ kernel-oot/nvgpu/drivers/gpu/nvgpu/os/linux/fuse.c	2026-11-07 21:46:08.720767005 +0000
++++ kernel-oot/nvgpu/drivers/gpu/nvgpu/os/linux/fuse.c	2026-11-09 02:52:44.084162592 +0000
 @@ -17,6 +17,12 @@
  #include <nvgpu/linux/nvmem.h>
  
@@ -406,7 +488,7 @@ diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.s
  #endif
 diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x '*.a' orig/nvgpu/drivers/gpu/nvgpu/os/linux/module.c kernel-oot/nvgpu/drivers/gpu/nvgpu/os/linux/module.c
 --- orig/nvgpu/drivers/gpu/nvgpu/os/linux/module.c	2026-11-07 21:01:39.592941228 +0000
-+++ kernel-oot/nvgpu/drivers/gpu/nvgpu/os/linux/module.c	2026-11-07 21:36:52.963817137 +0000
++++ kernel-oot/nvgpu/drivers/gpu/nvgpu/os/linux/module.c	2026-11-09 02:52:44.084293425 +0000
 @@ -1901,9 +1901,11 @@
  	err = nvgpu_read_fuse_overrides(gk20a);
  
@@ -424,7 +506,7 @@ diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.s
  	err = gk20a_pm_init(&dev->dev);
 diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x '*.a' orig/nvgpu/drivers/gpu/nvgpu/os/linux/nvhost_host1x.c kernel-oot/nvgpu/drivers/gpu/nvgpu/os/linux/nvhost_host1x.c
 --- orig/nvgpu/drivers/gpu/nvgpu/os/linux/nvhost_host1x.c	2026-11-07 21:01:39.593425226 +0000
-+++ kernel-oot/nvgpu/drivers/gpu/nvgpu/os/linux/nvhost_host1x.c	2026-11-08 04:45:25.098490718 +0000
++++ kernel-oot/nvgpu/drivers/gpu/nvgpu/os/linux/nvhost_host1x.c	2026-11-09 02:52:44.084414842 +0000
 @@ -16,7 +16,11 @@
  
  #include <linux/dma-fence.h>
@@ -460,7 +542,7 @@ diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.s
  	if (!g->nvhost)
 diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x '*.a' orig/nvgpu/drivers/gpu/nvgpu/os/linux/nvmem.c kernel-oot/nvgpu/drivers/gpu/nvgpu/os/linux/nvmem.c
 --- orig/nvgpu/drivers/gpu/nvgpu/os/linux/nvmem.c	2026-11-07 21:01:39.593716558 +0000
-+++ kernel-oot/nvgpu/drivers/gpu/nvgpu/os/linux/nvmem.c	2026-11-07 23:05:01.627539180 +0000
++++ kernel-oot/nvgpu/drivers/gpu/nvgpu/os/linux/nvmem.c	2026-11-09 02:52:44.084483884 +0000
 @@ -49,7 +49,8 @@
  
  	ret = nvmem_cell_read_u32(dev, NVMEM_CELL_GCPLEX_CONFIG_FUSE, val);
@@ -473,7 +555,7 @@ diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.s
  	}
 diff -ruN -x '*.o' -x '*.ko' -x '*.cmd' -x '*.mod*' -x modules.order -x Module.symvers -x '.*.d' -x '*.a' orig/nvgpu/drivers/gpu/nvgpu/os/linux/platform_gk20a_tegra.c kernel-oot/nvgpu/drivers/gpu/nvgpu/os/linux/platform_gk20a_tegra.c
 --- orig/nvgpu/drivers/gpu/nvgpu/os/linux/platform_gk20a_tegra.c	2026-11-07 21:01:39.595635426 +0000
-+++ kernel-oot/nvgpu/drivers/gpu/nvgpu/os/linux/platform_gk20a_tegra.c	2026-11-08 04:40:20.827618291 +0000
++++ kernel-oot/nvgpu/drivers/gpu/nvgpu/os/linux/platform_gk20a_tegra.c	2026-11-09 02:52:44.084584759 +0000
 @@ -532,7 +532,7 @@
   * the clock information to gk20a platform data.
   */

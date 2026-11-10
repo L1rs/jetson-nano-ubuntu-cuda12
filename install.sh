@@ -41,6 +41,7 @@ TAG=v$(cat $REPO/VERSION)
 SLUG=${SLUG:-L1rs/jetson-nano-ubuntu-cuda12}     # GitHub owner/repo, also used by nano-update
 RELEASE_URL=${RELEASE_URL:-https://github.com/$SLUG/releases/download/$TAG}
 export KVER=6.18.62
+KBUILD=2   # build of the kernel package (lib/modules/$KVER/nano-build); raise it when the modules change, update.sh then reinstalls them
 KERNEL_TGZ=linux-$KVER-t210-jetson-nano.tar.gz
 TORCH_WHL=torch-2.14.1a0+git5c48869-cp314-cp314-linux_aarch64.whl
 VISION_WHL=torchvision-0.29.2+f122815-py3-none-linux_aarch64.whl

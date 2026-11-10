@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.2.1 (2026-11-10)
+
+- Kernel panic with two GPU processes fixed: two processes with a GPU context while the camera captures corrupted kernel memory (NULL pointer in the scheduler, reproduced on the serial console; two GPU processes without the camera, or one with the camera, were stable). The patched `nvgpu` now allows one GPU process at a time; a second one gets `EBUSY` (`dmesg`: `nvgpu: GPU in use by PID ...`). Tested: the scenario that crashed now runs, the first process keeps working, the GPU is free again when it ends; same for TensorRT.
+- Frozen camera image fixed: `tegra-dvfs` lowered the memory clock to 204 MHz while the camera captured, which hangs the VI (`MW_ACK_DONE syncpt timeout`). It now keeps EMC at 1600 MHz while the `host1x_syncpt` interrupt count rises.
+- `nanocam`: optional own lens shading calibration `~/.nanocam-lsc.npy` (see docs/camera.md).
+- `update.sh` reinstalls the kernel package when its build changes (`KBUILD` in `install.sh`, `lib/modules/$KVER/nano-build`), not only for a new kernel version. Systems from v0.2.0 get the new GPU driver this way; reboot after the update.
+- The v0.2.0 SD card image stays current as a starting point: flash it, then `sudo nano-update install`.
+
 ## v0.2.0 (2026-11-09)
 
 - Repository name: `L1rs/jetson-nano-ubuntu-cuda12` (version independent; was `jetson-nano-ubuntu-26.04-cuda12`). `SLUG` default, clone URLs, `nano-update` and docs use it.

@@ -93,6 +93,11 @@ class NanoCam:
                 self.lsc = self.lsc[::-1, ::-1].copy()
         else:
             self.lsc, self.ccm = np.ones((height, width, 3), np.float32), np.eye(3, dtype=np.float32)
+        own = os.path.expanduser("~/.nanocam-lsc.npy")      # optional own lens shading calibration (white image)
+        if os.path.exists(own):
+            self.lsc = cv2.resize(np.load(own), self.size, interpolation=cv2.INTER_LINEAR)
+            if flip:
+                self.lsc = self.lsc[::-1, ::-1].copy()
         self.gains = np.ones(3, np.float32)                # AWB, B G R
         self.raw, self.seq, self.last, self.n = None, 0, 0, 0
         self.new = threading.Condition()

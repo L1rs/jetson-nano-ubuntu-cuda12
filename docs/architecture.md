@@ -68,7 +68,7 @@ The GPU clock is set by the `nvgpu` module (640 MHz at load, see [gpu-cuda.md](g
 
 `/usr/local/sbin/tegra-dvfs.py` polls the GPU load (`/sys/devices/platform/57000000.gpu/load`) and the busiest CPU core
 every 0.25 s. Any load switches to GPU 640 MHz / EMC 1600 MHz at once; after 3 s of idle it drops to GPU 77 MHz (818 mV) and
-EMC 204 MHz. EMC is set via `min_rate` and `max_rate` in `/sys/kernel/debug/emc`. The GPU clock is the module parameter
+EMC 204 MHz. While the camera captures (the `host1x_syncpt` interrupt count in `/proc/interrupts` rises), EMC stays at 1600 MHz: an EMC switch during a capture hangs the VI (`MW_ACK_DONE syncpt timeout`, frozen image). EMC is set via `min_rate` and `max_rate` in `/sys/kernel/debug/emc`. The GPU clock is the module parameter
 `t210_gpu_mhz`, written through a second sysfs mount (`/run/sysfs-rw`) because `/sys/module` is a read-only overlay
 (`tegra-fake-fuse.service`). Settings via environment: `GPU_MAX`, `GPU_IDLE`, `EMC_IDLE`, `HOLD_S`, `CPU_BUSY`.
 Stress test: `tools/dvfs-switch-test.py` (random GPU/EMC switching during checked matmuls).
